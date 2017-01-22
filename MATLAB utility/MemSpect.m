@@ -10,9 +10,13 @@ function [ S, F, T, P ] = MemSpect( Data, Window, Overlay, Frequency, Fs )
 
 if isempty(Window)
     Window = Fs;
+else
+    Window = round(Window);
 end
 if isempty(Overlay)
     Overlay = floor(Fs*0.5);
+else
+    Overlay = round(Overlay);
 end
 
 if Window <= Overlay
@@ -21,28 +25,14 @@ else
     moveBin = Window-Overlay;
 end
 
-numBin = floor((length(Data)-Window)/Overlay);
+numBin = floor((length(Data)-Window)/moveBin);
 
 S = [];
 F = Frequency;
 T = zeros(1,numBin);
 P = zeros(length(Frequency),numBin);
 
-mem_params(1) = 12;  %model order
-if min(Frequency) < 0
-    mem_params(2) = 0;
-else
-    mem_params(2) = min(Frequency);
-end
-if Fs/max(Frequency) < 2
-    mem_params(3) = floor(Fs/2-1);
-else
-    mem_params(3) = max(Frequency);
-end
-mem_params(4) = mean(diff(Frequency));  %Bin Width
-mem_params(5) = 1;  %Number of evals per bin
-mem_params(6) = 0;  %1 is detrend the mean
-mem_params(7) = Fs;  %Sampling Frequency
+mem_params = configMem(12, Frequency, Fs);
 
 for i = 1:numBin
     T(i) = ((i-1)*moveBin + i*moveBin+Window - 1) / 2 / Fs;

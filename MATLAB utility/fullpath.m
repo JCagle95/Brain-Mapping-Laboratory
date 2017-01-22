@@ -1,4 +1,4 @@
-function [ Path, FileName ]= fullpath(folder, pattern)
+function [ Path, FileName ]= fullPath(folder, pattern)
 %fullpath function will return the full address to the file matches the
 %pattern described.
 %
@@ -12,13 +12,18 @@ function [ Path, FileName ]= fullpath(folder, pattern)
 if iscell(folder)==1
     folder = cell2mat(folder);
 end
+
+if folder(end) ~= '\' || folder(end) ~= '/'
+    folder = [folder,'/'];
+end
+
 pattern = [folder pattern];
 
 files = dir(pattern);
 
 for fid = 1:length(files)
     Path{fid} = [folder files(fid).name];
-    FileName{fid} = data(fid).name;
+    FileName{fid} = files(fid).name;
 end
 
 Path(ismember(FileName,{'.','..'})) = [];
