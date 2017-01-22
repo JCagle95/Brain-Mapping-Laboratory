@@ -7,7 +7,7 @@ function varargout = renderData(varargin)
 %      renderData must run after SyncData, and the output of SyncData is
 %      fed into renderData. 
 %
-%   J. Cagle, University of Florida 2017
+%   J. Cagle, University of Florida 2016
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -36,6 +36,7 @@ function renderData_OpeningFcn(hObject, eventdata, handles, varargin)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to renderData (see VARARGIN)
+
 % Choose default command line output for renderData
 handles.output = hObject;
 
@@ -53,36 +54,20 @@ handles.utility.RightDBSChannelID = 3;
 handles.utility.Marker.time = handles.utility.Data.Delsys.EMG(1).time;
 handles.utility.Marker.data = zeros(1,length(handles.utility.Marker.time));
 handles.utility.PowerRange = [-60, -30];
-handles.utility.spectOverlay = round(handles.utility.Data.Left_DBS.SamplingRate / 16 * 7);
-handles.utility.spectWindow = round(handles.utility.Data.Left_DBS.SamplingRate / 2);
-
-handles.activex1.URL = [handles.utility.PathName,handles.utility.FileName];
-handles.activex1.settings.autoStart = true;
+handles.utility.spectOverlay = round(handles.utility.Data.Left_DBS.SamplingRate / 16);
+handles.utility.spectWindow = round(handles.utility.Data.Left_DBS.SamplingRate);
 
 [~,handles.utility.FL,handles.utility.TL,handles.utility.LeftDBS_Spectrogram] = MemSpect(handles.utility.Data.Left_DBS.data(:,handles.utility.LeftDBSChannelID), handles.utility.spectWindow, handles.utility.spectOverlay, 0:0.1:80, handles.utility.Data.Left_DBS.SamplingRate);
 [~,handles.utility.FR,handles.utility.TR,handles.utility.RightDBS_Spectrogram] = MemSpect(handles.utility.Data.Right_DBS.data(:,handles.utility.RightDBSChannelID), handles.utility.spectWindow, handles.utility.spectOverlay, 0:0.1:80, handles.utility.Data.Right_DBS.SamplingRate);
 
 handles = renderInitialImage(handles);
+
+% Update handles structure
 guidata(hObject, handles);
+
+% UIWAIT makes selectTicRange wait for user response (see UIRESUME)
 uiwait(handles.figure1);
 
-function varargout = renderData_OutputFcn(hObject, eventdata, handles) 
-varargout{1} = handles.output;
-delete(handles.figure1);
-
-function figure1_CloseRequestFcn(hObject, eventdata, handles)
-handles.output = handles.utility;
-if strcmp(handles.activex1.playState,'wmppsPlaying')
-    handles.activex1.controls.pause();
-end
-guidata(hObject, handles);
-if isequal(get(hObject, 'waitstatus'), 'waiting')
-	uiresume(hObject);
-else
-	delete(hObject);
-end
-
-% --- Custom Functions for Plottings
 function setGraphLimit(handle, currentTime)
 xlim(handle,[currentTime-5 currentTime+5]);
 set(handle, 'XTick', linspace(currentTime-5, currentTime+5, 5), 'XTickLabel', {'-5','-2.5','0','2.5','5'});
@@ -99,10 +84,15 @@ Y = sqrt((ACC.X.data.^2+ACC.Y.data.^2+ACC.Z.data.^2)/3);
 Range = [min(Y), max(Y)];
 
 function handles = renderInitialImage(handles)
+vidFrame = readFrame(handles.utility.lowResoVidObj);
+handles.utility.IM = image(vidFrame, 'Parent', handles.CameraVideo);
+set(handles.CameraVideo,'XTick',[], 'YTick', []);
 
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
+handles.TimeText.String = sprintf('Current Time - %.2f / %.2f sec',handles.utility.lowResoVidObj.CurrentTime,handles.utility.lowResoVidObj.Duration);
+handles.TimeSlider.Value = handles.utility.lowResoVidObj.CurrentTime / handles.utility.lowResoVidObj.Duration;
 
-plot(handles.AudioTrack, handles.utility.audioTrack.time, handles.utility.audioTrack.data(:,1));
+plot(handles.AudioTrack, handles.utility.audioTrack.time + handles.utility.shiftedMTS, handles.utility.audioTrack.data(:,1));
 ylim(handles.AudioTrack,[-1 1]);
 setGraphLimit(handles.AudioTrack, currentTime);
 set(handles.AudioTrack,'XTick',[], 'YTick', []);
@@ -159,14 +149,27 @@ setGraphLimit(handles.RightDBS_Spect, currentTime);
 xlabel(handles.RightDBS_Spect,'Time (s)','fontsize',12);
 ylabel(handles.RightDBS_Spect,'Frequency (Hz)','fontsize',12);
 
-% Video Display Using Windows Media Player (ActiveX Control)
-function activex1_PlayStateChange(hObject, eventdata, handles)
-% hObject    handle to activex1 (see GCBO)
-% eventdata  structure with parameters passed to COM event listener
-% handles    structure with handles and user data (see GUIDATA)
-if  eventdata.NewState == 3
-        while strcmp(handles.activex1.playState,'wmppsPlaying')
-            currentTime = handles.activex1.controls.currentPosition;
+function renderVideo(handles)
+global playBack;
+x = 0;
+handles = renderInitialImage(handles);
+
+previousTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
+Time = (1:length(handles.utility.audioTrack.raw)) / 48000;
+
+tic;
+while hasFrame(handles.utility.lowResoVidObj)
+    if ~playBack
+        break;
+    else
+        vidFrame = readFrame(handles.utility.lowResoVidObj);
+        handles.utility.IM.CData = vidFrame;
+        drawnow;
+        
+        if rem(x,2) == 0
+            currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
+            handles.TimeText.String = sprintf('Current Time - %.2f / %.2f sec',handles.utility.lowResoVidObj.CurrentTime,handles.utility.lowResoVidObj.Duration);
+            handles.TimeSlider.Value = handles.utility.lowResoVidObj.CurrentTime / handles.utility.lowResoVidObj.Duration;
             setGraphLimit(handles.DetectionChan, currentTime);
             setGraphLimit(handles.LeftDBS_Time, currentTime);
             setGraphLimit(handles.RightDBS_Time, currentTime);
@@ -175,15 +178,63 @@ if  eventdata.NewState == 3
             setGraphLimit(handles.AudioTrack, currentTime);
             ylim(handles.AudioTrack,[-1 1]);
             set(handles.AudioTrack,'XTick',[], 'YTick', []);
-            drawnow;
+            fprintf('Time Delay: %.5f\n',toc);
+            tic;
         end
+        x = x + 1;
+        
+    end
+    
 end
+
+function varargout = renderData_OutputFcn(hObject, eventdata, handles) 
+varargout{1} = handles.output;
+delete(handles.figure1);
+
+function figure1_CloseRequestFcn(hObject, eventdata, handles)
+handles.output = handles.utility;
+guidata(hObject, handles);
+if isequal(get(hObject, 'waitstatus'), 'waiting')
+	uiresume(hObject);
+else
+	delete(hObject);
+end
+
+% --- Executes on button press in PushButton.
+function PushButton_Callback(hObject, eventdata, handles)
+% hObject    handle to PushButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global playBack
+playBack = ~playBack;
+if playBack
+    hObject.String = 'Stop';
+    renderVideo(handles);
+else
+    hObject.String = 'Play';
+end
+
+
+% --- Executes on button press in ResetButton.
+function ResetButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ResetButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global playBack
+playBack = false;
+pause(0.5);
+handles.utility.lowResoVidObj.CurrentTime = 0;
+handles = renderInitialImage(handles);
+handles.PushButton.String = 'Play';
+guidata(hObject, handles);
+
 
 % --- Executes on selection change in LeftPopup.
 function LeftPopup_Callback(hObject, eventdata, handles)
 % hObject    handle to LeftPopup (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: contents = cellstr(get(hObject,'String')) returns LeftPopup contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from LeftPopup
 if get(hObject,'Value') == 1
@@ -195,7 +246,7 @@ end
 imagesc(handles.LeftDBS_Spect, handles.utility.TL - handles.utility.DBS_Bias(1), handles.utility.FL, 10*log10(handles.utility.LeftDBS_Spectrogram));
 axis(handles.LeftDBS_Spect,'xy'); colormap(handles.LeftDBS_Spect,'jet');
 caxis(handles.LeftDBS_Spect,handles.utility.PowerRange);
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 setGraphLimit(handles.LeftDBS_Spect, currentTime);
 xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
 guidata(hObject, handles);
@@ -206,6 +257,7 @@ function LeftPopup_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to LeftPopup (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -218,6 +270,7 @@ function LeftHandSensor_Callback(hObject, eventdata, handles)
 % hObject    handle to LeftHandSensor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: contents = cellstr(get(hObject,'String')) returns LeftHandSensor contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from LeftHandSensor
 handles.utility.LeftHandSensorID = get(hObject,'Value');
@@ -232,7 +285,7 @@ switch handles.utility.LeftSensorType
         [X,Y,DataRange] = computeAcceleration(handles.utility.Data.Delsys.Gyro(handles.utility.LeftHandSensorID));
 end
 plot(handles.LeftDBS_Time, X - handles.utility.EMG_Bias, Y,'k');
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 setGraphLimit(handles.LeftDBS_Time, currentTime);
 ylim(handles.LeftDBS_Time,DataRange .* [0.95 1.05]);
 xlabel(handles.LeftDBS_Time,'Time (s)','fontsize',12);
@@ -244,6 +297,7 @@ function LeftHandSensor_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to LeftHandSensor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -256,6 +310,7 @@ function RightHandSensor_Callback(hObject, eventdata, handles)
 % hObject    handle to RightHandSensor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: contents = cellstr(get(hObject,'String')) returns RightHandSensor contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from RightHandSensor
 handles.utility.RightHandSensorID = get(hObject,'Value');
@@ -270,7 +325,7 @@ switch handles.utility.RightSensorType
         [X,Y,DataRange_Right] = computeAcceleration(handles.utility.Data.Delsys.Gyro(handles.utility.RightHandSensorID));
 end
 plot(handles.RightDBS_Time, X - handles.utility.EMG_Bias, Y,'k');
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 setGraphLimit(handles.RightDBS_Time, currentTime);
 xlabel(handles.RightDBS_Time,'Time (s)','fontsize',12);
 ylim(handles.RightDBS_Time,DataRange_Right .* [0.95 1.05]);
@@ -282,6 +337,7 @@ function RightHandSensor_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to RightHandSensor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -294,6 +350,7 @@ function TimeSlider_Callback(hObject, eventdata, handles)
 % hObject    handle to TimeSlider (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 Percentage = (get(hObject,'Value') - get(hObject,'Min')) / (get(hObject,'Max') - get(hObject,'Min'));
@@ -306,6 +363,7 @@ function TimeSlider_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to TimeSlider (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: slider controls usually have a light gray background.
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
@@ -317,6 +375,7 @@ function RightPopup_Callback(hObject, ~, handles)
 % hObject    handle to RightPopup (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: contents = cellstr(get(hObject,'String')) returns RightPopup contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from RightPopup
 if get(hObject,'Value') == 1
@@ -328,9 +387,8 @@ end
 imagesc(handles.RightDBS_Spect, handles.utility.TR - handles.utility.DBS_Bias(2), handles.utility.FR, 10*log10(handles.utility.RightDBS_Spectrogram));
 axis(handles.RightDBS_Spect,'xy'); colormap(handles.RightDBS_Spect,'jet');
 caxis(handles.RightDBS_Spect,handles.utility.PowerRange);
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 setGraphLimit(handles.RightDBS_Spect, currentTime);
-addGUIColorbar(handles.RightDBS_Spect);
 xlabel(handles.RightDBS_Spect,'Time (s)','fontsize',12);
 guidata(hObject,handles);
 
@@ -339,6 +397,7 @@ function RightPopup_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to RightPopup (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -350,7 +409,7 @@ function Marker_Callback(hObject, eventdata, handles)
 % hObject    handle to Marker (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 SelectTime = handles.utility.Marker.time - handles.utility.EMG_Bias < currentTime + 0.05 & handles.utility.Marker.time - handles.utility.EMG_Bias > currentTime - 0.05;
 handles.utility.Marker.data(SelectTime) = 1;
 plot(handles.DetectionChan, handles.utility.Marker.time - handles.utility.EMG_Bias, handles.utility.Marker.data,'k');
@@ -364,6 +423,7 @@ function RightSelectType_Callback(hObject, eventdata, handles)
 % hObject    handle to RightSelectType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: contents = cellstr(get(hObject,'String')) returns RightSelectType contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from RightSelectType
 handles.utility.RightSensorType = get(hObject,'Value');
@@ -378,7 +438,7 @@ switch handles.utility.RightSensorType
         [X,Y,DataRange_Right] = computeAcceleration(handles.utility.Data.Delsys.Gyro(handles.utility.RightHandSensorID));
 end
 plot(handles.RightDBS_Time, X - handles.utility.EMG_Bias, Y,'k');
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 setGraphLimit(handles.RightDBS_Time, currentTime);
 xlabel(handles.RightDBS_Time,'Time (s)','fontsize',12);
 ylim(handles.RightDBS_Time,DataRange_Right .* [0.95 1.05]);
@@ -390,6 +450,7 @@ function RightSelectType_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to RightSelectType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -401,6 +462,7 @@ function LeftSelectType_Callback(hObject, eventdata, handles)
 % hObject    handle to LeftSelectType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 % Hints: contents = cellstr(get(hObject,'String')) returns LeftSelectType contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from LeftSelectType
 handles.utility.LeftSensorType = get(hObject,'Value');
@@ -415,7 +477,7 @@ switch handles.utility.LeftSensorType
         [X,Y,DataRange] = computeAcceleration(handles.utility.Data.Delsys.Gyro(handles.utility.LeftHandSensorID));
 end
 plot(handles.LeftDBS_Time, X - handles.utility.EMG_Bias, Y,'k');
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 setGraphLimit(handles.LeftDBS_Time, currentTime);
 xlabel(handles.LeftDBS_Time,'Time (s)','fontsize',12);
 ylim(handles.LeftDBS_Time,DataRange .* [0.95 1.05]);
@@ -427,6 +489,7 @@ function LeftSelectType_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to LeftSelectType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
+
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -480,7 +543,7 @@ function calibrateCaxis_Callback(hObject, eventdata, handles)
 % hObject    handle to calibrateCaxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-currentTime = handles.activex1.controls.currentPosition;
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
 Selection = handles.utility.TL - handles.utility.DBS_Bias(1) >= currentTime - 5 & handles.utility.TL - handles.utility.DBS_Bias(1) <= currentTime + 5;
 maxL = max(max(10*log10(handles.utility.LeftDBS_Spectrogram(:,Selection))));
 minL = min(min(10*log10(handles.utility.LeftDBS_Spectrogram(:,Selection))));
@@ -593,35 +656,13 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-% --- Executes on button press in rewind.
-function rewind_Callback(hObject, eventdata, handles)
-% hObject    handle to rewind (see GCBO)
+
+% --- Executes on button press in audioPlay.
+function audioPlay_Callback(hObject, eventdata, handles)
+% hObject    handle to audioPlay (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-handles.activex1.controls.currentPosition = handles.activex1.controls.currentPosition - 2.5;
-
-% --- Executes on button press in fastforward.
-function fastforward_Callback(hObject, eventdata, handles)
-% hObject    handle to fastforward (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-handles.activex1.controls.currentPosition = handles.activex1.controls.currentPosition + 2.5;
-
-% --- Executes on slider movement.
-function playRate_Callback(hObject, eventdata, handles)
-% hObject    handle to playRate (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% Hints: get(hObject,'Value') returns position of slider
-%        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
-handles.activex1.settings.rate = get(hObject,'Value');
-
-% --- Executes during object creation, after setting all properties.
-function playRate_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to playRate (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-% Hint: slider controls usually have a light gray background.
-if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor',[.9 .9 .9]);
-end
+currentTime = handles.utility.lowResoVidObj.CurrentTime + handles.utility.shiftedMTS;
+Time = (1:length(handles.utility.audioTrack.raw)) / 48000;
+SelectedData = handles.utility.audioTrack.raw(Time>=currentTime-2.5&Time<=currentTime+2.5,1);
+sound(SelectedData,48000);
