@@ -1,3 +1,4 @@
+%% Initial Data Processing
 clear; clc; close all;
 cd('C:\Users\jcagle\Documents\Datasets\Alcoholic EEG');
 folders = dir('co*');
@@ -79,5 +80,35 @@ for i = 1:length(folders)
         fprintf('Elapsed Time: (%d/%d - %d/%d) = %.2f\n',i,length(folders),id,length(files),toc);
     end
 end
-
 save('Raw.mat','TrialType','TrialStatus','ChannelID','Data','Label');
+
+%% Store the Data to CSV for Easy Access from Python
+
+% Check ChannelID to Identify Outliers
+for name = 1:length(ChannelID{1})
+    TargetChannel = ChannelID{1}{name};
+    for n = 2:length(ChannelID)
+        IdentifiedChannel = find(strncmp(TargetChannel, ChannelID{n},length(TargetChannel)));
+        if length(IdentifiedChannel) ~= 1
+            fprintf('Multiple Matches\n');
+            keyboard;
+        else
+            if IdentifiedChannel ~= name
+                fprintf('Incorrect Channel Location\n');
+                keyboard;
+            end
+        end
+    end
+end
+
+% Write Raw Data to CSV
+Subjects = dir('co*');
+for n = 1:length(Subjects)
+    Trials = fullPath(Subjects(n).name,'co*');
+    TrialInformation = zeros(length(Trials),2);
+    for i = 1:length(Trials)
+        csvwrite([Trials{i},'.csv'],Data{n}(:,:,i));
+        TrialInformation(i,:) = [TrialType{n}(i),TrialStatus{n}(i)];
+    end
+    csvwrite([Subjects(n).name,'/',Subjects(n).name,'.csv'], TrialInformation);
+end

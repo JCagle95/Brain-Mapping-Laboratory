@@ -66,12 +66,8 @@ end
 %% Video Processing
 Video_files = dir('Video\*.MTS');
 targetFileName = dir('EMG Data\*.csv');
-if isequal(dir('Video\lowResolution'),0)
-    mkdir('Video\lowResolution');
-end
 
 for trial = 3:length(Video_files)
     copyfile(['Video/',Video_files(trial).name],['Video/',targetFileName(trial).name(1:end-4),'.MTS']);
-    reduceResolution(['Video/',targetFileName(trial).name(1:end-4),'.MTS'],['Video/lowResolution/',targetFileName(trial).name(1:end-4)],0.2);
     system(['ffmpeg -i "Video/',targetFileName(trial).name(1:end-4),'.MTS" -vn -acodec copy -ar 48000 "Video/',targetFileName(trial).name(1:end-4),'.wav"']);
 end
