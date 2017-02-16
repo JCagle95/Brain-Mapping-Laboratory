@@ -1,7 +1,7 @@
 %% Pre-Configured Settings
 SubID = 'TS03';
-ExperimentDate = '12_22_16';
-ExperimentType = {'Baseline','Baseline','Therapeutic','Therapeutic','NonTherapeutic','NonTherapeutic'};
+ExperimentDate = '02_07_17';
+ExperimentType = {'Baseline','Baseline','Tic','Tic','Baseline','NonTherapeutic','Therapeutic','Tic'};
 
 %% EMG Conversion
 DelsysHDFtoCSV([pwd,'\EMG Data\raw'],0);
@@ -67,7 +67,7 @@ end
 Video_files = dir('Video\*.MTS');
 targetFileName = dir('EMG Data\*.csv');
 
-for trial = 3:length(Video_files)
+for trial = 1:length(Video_files)
     copyfile(['Video/',Video_files(trial).name],['Video/',targetFileName(trial).name(1:end-4),'.MTS']);
     system(['ffmpeg -i "Video/',targetFileName(trial).name(1:end-4),'.MTS" -vn -acodec copy -ar 48000 "Video/',targetFileName(trial).name(1:end-4),'.wav"']);
 end

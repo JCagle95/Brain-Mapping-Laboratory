@@ -51,6 +51,10 @@ function detectionView_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to detectionView (see VARARGIN)
 handles.utility.ProcessedData = varargin{1};
+handles.utility.Channel = varargin{2};
+if handles.utility.Channel == 1
+    set(handles.Threshold_Slider,'Max', 0.005);
+end
 handles.utility.OnsetDuration = get(handles.OnsetDuration,'Value');
 handles.utility.OffsetDuration = get(handles.OffsetDuration,'Value');
 handles.OnsetDuration_Text.String = sprintf('%.1f', handles.utility.OnsetDuration);
@@ -60,13 +64,17 @@ handles.utility.CenterFreq = 15;
 
 Fs = handles.utility.ProcessedData.Left_DBS.SamplingRate;
 Window = Fs; Overlap = Fs/8*7;
-[~,~,handles.utility.Time_Left,handles.utility.Spect_Left] = MemSpect(handles.utility.ProcessedData.Left_DBS.data(:,3), Window, Overlap, handles.utility.FrequencyVector, Fs);
+[~,~,handles.utility.Time_Left,handles.utility.Spect_Left] = MemSpect(handles.utility.ProcessedData.Left_DBS.data(:,handles.utility.Channel), Window, Overlap, handles.utility.FrequencyVector, Fs);
 handles.Left_Limits = calibrateLimits(handles.utility.Spect_Left,handles.utility.Spect_Left);
 
 set(handles.Frequency_Slider, 'Value', handles.utility.CenterFreq / max(handles.utility.FrequencyVector));
 handles.Frequency_Text.String = sprintf('%.1f', handles.utility.CenterFreq);
-set(handles.Threshold_Slider, 'Value', 0.8);
-handles.Threshold_Text.String = sprintf('%.1f%%', 80.0);
+if handles.utility.Channel == 1
+    set(handles.Threshold_Slider,'Value', 0.005);
+else
+    set(handles.Threshold_Slider,'Value', 0.01);
+end
+handles.Threshold_Text.String = sprintf('%.1g%%', get(handles.Threshold_Slider,'Value'));
 
 renderImage(handles);
 runDetection(handles);
@@ -219,7 +227,7 @@ function Threshold_Slider_Callback(hObject, eventdata, handles)
 % hObject    handle to Threshold_Slider (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-handles.Threshold_Text.String = sprintf('%.1f%%', get(hObject,'Value')*100);
+handles.Threshold_Text.String = sprintf('%.1g%%', get(hObject,'Value')*100);
 runDetection(handles);
 guidata(hObject, handles);
 

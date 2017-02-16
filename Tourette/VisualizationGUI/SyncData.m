@@ -90,7 +90,7 @@ end
 
 function handles = prepareData(handles)
 handles.utility.vidObj = VideoReader([handles.utility.PathName, handles.utility.FileName]);
-handles.utility.lowResoVidObj = VideoReader([handles.utility.PathName, 'lowResolution\', handles.utility.FileName(1:end-4),'.avi']);
+%handles.utility.lowResoVidObj = VideoReader([handles.utility.PathName, 'lowResolution\', handles.utility.FileName(1:end-4),'.avi']);
 TrialID = str2double(handles.utility.FileName(strfind(handles.utility.FileName,'Run')+3:strfind(handles.utility.FileName,'Run')+4));
 handles.utility.Data = load([handles.utility.PathName,sprintf('../Run%.2d.mat',TrialID)]);
 handles.utility.audioTrack.raw = audioread([handles.utility.PathName, handles.utility.FileName(1:end-4),'.wav']);

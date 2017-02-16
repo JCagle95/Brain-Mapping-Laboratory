@@ -44,6 +44,7 @@ global playBack;
 playBack = false;
 
 handles.utility = varargin{1};
+handles.powerSelection = false;
 handles.utility.LeftHandSensorID = 8;
 handles.utility.RightHandSensorID = 9;
 handles.utility.LeftSensorType = 2;
@@ -144,20 +145,31 @@ xlabel(handles.RightDBS_Time,'Time (s)','fontsize',12);
 title(handles.RightDBS_Time,'Right Side','fontsize',15);
 ylim(handles.RightDBS_Time,DataRange_Right .* [0.95 1.05]);
 
-imagesc(handles.LeftDBS_Spect, handles.utility.TL - handles.utility.DBS_Bias(1), handles.utility.FL, 10*log10(handles.utility.LeftDBS_Spectrogram));
-axis(handles.LeftDBS_Spect,'xy'); colormap(handles.LeftDBS_Spect,'jet');
-caxis(handles.LeftDBS_Spect,handles.utility.PowerRange);
-setGraphLimit(handles.LeftDBS_Spect, currentTime);
-xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
-ylabel(handles.LeftDBS_Spect,'Frequency (Hz)','fontsize',12);
+if ~handles.powerSelection
+    imagesc(handles.LeftDBS_Spect, handles.utility.TL - handles.utility.DBS_Bias(1), handles.utility.FL, 10*log10(handles.utility.LeftDBS_Spectrogram));
+    axis(handles.LeftDBS_Spect,'xy'); colormap(handles.LeftDBS_Spect,'jet');
+    caxis(handles.LeftDBS_Spect,handles.utility.PowerRange);
+    setGraphLimit(handles.LeftDBS_Spect, currentTime);
+    xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
+    ylabel(handles.LeftDBS_Spect,'Frequency (Hz)','fontsize',12);
 
-imagesc(handles.RightDBS_Spect, handles.utility.TR - handles.utility.DBS_Bias(2), handles.utility.FR, 10*log10(handles.utility.RightDBS_Spectrogram));
-axis(handles.RightDBS_Spect,'xy'); colormap(handles.RightDBS_Spect,'jet');
-caxis(handles.RightDBS_Spect,handles.utility.PowerRange);
-addGUIColorbar(handles.RightDBS_Spect);
-setGraphLimit(handles.RightDBS_Spect, currentTime);
-xlabel(handles.RightDBS_Spect,'Time (s)','fontsize',12);
-ylabel(handles.RightDBS_Spect,'Frequency (Hz)','fontsize',12);
+    imagesc(handles.RightDBS_Spect, handles.utility.TR - handles.utility.DBS_Bias(2), handles.utility.FR, 10*log10(handles.utility.RightDBS_Spectrogram));
+    axis(handles.RightDBS_Spect,'xy'); colormap(handles.RightDBS_Spect,'jet');
+    caxis(handles.RightDBS_Spect,handles.utility.PowerRange);
+    addGUIColorbar(handles.RightDBS_Spect);
+    setGraphLimit(handles.RightDBS_Spect, currentTime);
+    xlabel(handles.RightDBS_Spect,'Time (s)','fontsize',12);
+    ylabel(handles.RightDBS_Spect,'Frequency (Hz)','fontsize',12);
+else
+    plot(handles.LeftDBS_Spect, handles.utility.Data.Left_DBS.TimeRange - handles.utility.DBS_Bias(1), handles.utility.Data.Left_DBS.data(:,handles.utility.LeftDBSChannelID+1));
+    ylim(handles.LeftDBS_Spect, [0 1024]);
+    xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
+    ylabel(handles.LeftDBS_Spect,'Power','fontsize',12);
+    plot(handles.RightDBS_Spect, handles.utility.Data.Right_DBS.TimeRange - handles.utility.DBS_Bias(2), handles.utility.Data.Right_DBS.data(:,handles.utility.RightDBSChannelID+1));
+    ylim(handles.RightDBS_Spect, [0 1024]);
+    xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
+    ylabel(handles.LeftDBS_Spect,'Power','fontsize',12);
+end
 
 % Video Display Using Windows Media Player (ActiveX Control)
 function activex1_PlayStateChange(hObject, eventdata, handles)
@@ -191,14 +203,21 @@ if get(hObject,'Value') == 1
 else
     handles.utility.LeftDBSChannelID = 1;
 end
-[~,handles.utility.FL,handles.utility.TL,handles.utility.LeftDBS_Spectrogram] = MemSpect(handles.utility.Data.Left_DBS.data(:,handles.utility.LeftDBSChannelID), handles.utility.spectWindow, handles.utility.spectOverlay, 0:0.1:80, handles.utility.Data.Left_DBS.SamplingRate);
-imagesc(handles.LeftDBS_Spect, handles.utility.TL - handles.utility.DBS_Bias(1), handles.utility.FL, 10*log10(handles.utility.LeftDBS_Spectrogram));
-axis(handles.LeftDBS_Spect,'xy'); colormap(handles.LeftDBS_Spect,'jet');
-caxis(handles.LeftDBS_Spect,handles.utility.PowerRange);
-currentTime = handles.activex1.controls.currentPosition;
-setGraphLimit(handles.LeftDBS_Spect, currentTime);
-xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
-guidata(hObject, handles);
+if ~handles.powerSelection
+    [~,handles.utility.FL,handles.utility.TL,handles.utility.LeftDBS_Spectrogram] = MemSpect(handles.utility.Data.Left_DBS.data(:,handles.utility.LeftDBSChannelID), handles.utility.spectWindow, handles.utility.spectOverlay, 0:0.1:80, handles.utility.Data.Left_DBS.SamplingRate);
+    imagesc(handles.LeftDBS_Spect, handles.utility.TL - handles.utility.DBS_Bias(1), handles.utility.FL, 10*log10(handles.utility.LeftDBS_Spectrogram));
+    axis(handles.LeftDBS_Spect,'xy'); colormap(handles.LeftDBS_Spect,'jet');
+    caxis(handles.LeftDBS_Spect,handles.utility.PowerRange);
+    currentTime = handles.activex1.controls.currentPosition;
+    setGraphLimit(handles.LeftDBS_Spect, currentTime);
+    xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
+    guidata(hObject, handles);
+else
+    plot(handles.LeftDBS_Spect, handles.utility.Data.Left_DBS.TimeRange - handles.utility.DBS_Bias(1), handles.utility.Data.Left_DBS.data(:,handles.utility.LeftDBSChannelID+1));
+    ylim(handles.LeftDBS_Spect, [0 1024]);
+    xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
+    ylabel(handles.LeftDBS_Spect,'Power','fontsize',12);
+end
 
 
 % --- Executes during object creation, after setting all properties.
@@ -297,7 +316,7 @@ function TimeSlider_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 Percentage = (get(hObject,'Value') - get(hObject,'Min')) / (get(hObject,'Max') - get(hObject,'Min'));
-handles.utility.lowResoVidObj.CurrentTime = handles.utility.lowResoVidObj.Duration * Percentage;
+%handles.utility.lowResoVidObj.CurrentTime = handles.utility.lowResoVidObj.Duration * Percentage;
 handles = renderInitialImage(handles);
 guidata(hObject,handles);
 
@@ -324,15 +343,22 @@ if get(hObject,'Value') == 1
 else
     handles.utility.RightDBSChannelID = 1;
 end
-[~,handles.utility.FR,handles.utility.TR,handles.utility.RightDBS_Spectrogram] = MemSpect(handles.utility.Data.Right_DBS.data(:,handles.utility.RightDBSChannelID), handles.utility.spectWindow, handles.utility.spectOverlay, 0:0.1:80, handles.utility.Data.Right_DBS.SamplingRate);
-imagesc(handles.RightDBS_Spect, handles.utility.TR - handles.utility.DBS_Bias(2), handles.utility.FR, 10*log10(handles.utility.RightDBS_Spectrogram));
-axis(handles.RightDBS_Spect,'xy'); colormap(handles.RightDBS_Spect,'jet');
-caxis(handles.RightDBS_Spect,handles.utility.PowerRange);
-currentTime = handles.activex1.controls.currentPosition;
-setGraphLimit(handles.RightDBS_Spect, currentTime);
-addGUIColorbar(handles.RightDBS_Spect);
-xlabel(handles.RightDBS_Spect,'Time (s)','fontsize',12);
-guidata(hObject,handles);
+if ~handles.powerSelection
+    [~,handles.utility.FR,handles.utility.TR,handles.utility.RightDBS_Spectrogram] = MemSpect(handles.utility.Data.Right_DBS.data(:,handles.utility.RightDBSChannelID), handles.utility.spectWindow, handles.utility.spectOverlay, 0:0.1:80, handles.utility.Data.Right_DBS.SamplingRate);
+    imagesc(handles.RightDBS_Spect, handles.utility.TR - handles.utility.DBS_Bias(2), handles.utility.FR, 10*log10(handles.utility.RightDBS_Spectrogram));
+    axis(handles.RightDBS_Spect,'xy'); colormap(handles.RightDBS_Spect,'jet');
+    caxis(handles.RightDBS_Spect,handles.utility.PowerRange);
+    currentTime = handles.activex1.controls.currentPosition;
+    setGraphLimit(handles.RightDBS_Spect, currentTime);
+    addGUIColorbar(handles.RightDBS_Spect);
+    xlabel(handles.RightDBS_Spect,'Time (s)','fontsize',12);
+    guidata(hObject,handles);
+else
+    plot(handles.RightDBS_Spect, handles.utility.Data.Right_DBS.TimeRange - handles.utility.DBS_Bias(2), handles.utility.Data.Right_DBS.data(:,handles.utility.RightDBSChannelID+1));
+    ylim(handles.RightDBS_Spect, [0 1024]);
+    xlabel(handles.LeftDBS_Spect,'Time (s)','fontsize',12);
+    ylabel(handles.LeftDBS_Spect,'Power','fontsize',12);
+end
 
 % --- Executes during object creation, after setting all properties.
 function RightPopup_CreateFcn(hObject, eventdata, handles)
@@ -625,3 +651,12 @@ function playRate_CreateFcn(hObject, eventdata, handles)
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
+
+% --------------------------------------------------------------------
+function powerChan_Callback(hObject, eventdata, handles)
+% hObject    handle to powerChan (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+handles.powerSelection = ~handles.powerSelection;
+handles = renderInitialImage(handles);
+guidata(hObject, handles);

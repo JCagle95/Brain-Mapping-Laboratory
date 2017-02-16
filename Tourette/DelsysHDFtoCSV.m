@@ -7,7 +7,7 @@ function DelsysHDFtoCSV( folder, ID )
 if folder(end) ~= '/' || folder(end) ~= '\'
     folder(end+1) = '/';
 end
-rootPath = fullpath(folder,'hpf','f');
+rootPath = fullPath(folder,'*hpf');
 for i = 1:length(rootPath)
     if i >= ID
         dos(['"C:\Program Files (x86)\Delsys, Inc\EMGworks 4.3.0\DelsysFileUtil.exe" -nogui -o CSV -i "' rootPath{i} '" -r "' folder 'CSV\']);

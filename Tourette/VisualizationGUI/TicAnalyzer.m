@@ -54,6 +54,7 @@ function TicAnalyzer_OpeningFcn(hObject, eventdata, handles, varargin)
 handles.utility.ProcessedData = varargin{1};
 handles.utility.TicRecording = varargin{2};
 handles.utility.TaskID = varargin{3};
+handles.utility.Channel = varargin{4};
 handles.utility.CurrentTrial = 1;
 handles.utility.FrequencyVector = 0:0.1:80;
 
@@ -134,7 +135,7 @@ for TicID = 1:Tic.Count
 end
 
 % Left Device Spectrogram
-[~,F,T,P] = MemSpect(Data.Left_DBS.data(:,3), Data.Left_DBS.SamplingRate, Data.Left_DBS.SamplingRate * 0.875, handles.utility.FrequencyVector, Data.Left_DBS.SamplingRate);
+[~,F,T,P] = MemSpect(Data.Left_DBS.data(:,handles.utility.Channel), Data.Left_DBS.SamplingRate, Data.Left_DBS.SamplingRate * 0.875, handles.utility.FrequencyVector, Data.Left_DBS.SamplingRate);
 handles.utility.LeftPower.Spectrum = P;
 P = P ./ repmat(handles.utility.selectedBaseline.Power.Left, 1, length(T));
 handles.utility.LeftPower.Time = T;
@@ -144,7 +145,7 @@ maxL = prctile(prctile(10*log10(P),95),95);
 minL = prctile(prctile(10*log10(P),5),5); 
 
 % Right Device Spectrogram
-[~,F,T,P] = MemSpect(Data.Right_DBS.data(:,3), Data.Right_DBS.SamplingRate, Data.Right_DBS.SamplingRate * 0.875, handles.utility.FrequencyVector, Data.Right_DBS.SamplingRate);
+[~,F,T,P] = MemSpect(Data.Right_DBS.data(:,handles.utility.Channel), Data.Right_DBS.SamplingRate, Data.Right_DBS.SamplingRate * 0.875, handles.utility.FrequencyVector, Data.Right_DBS.SamplingRate);
 handles.utility.RightPower.Spectrum = P;
 P = P ./ repmat(handles.utility.selectedBaseline.Power.Right, 1, length(T));
 handles.utility.RightPower.Time = T;
