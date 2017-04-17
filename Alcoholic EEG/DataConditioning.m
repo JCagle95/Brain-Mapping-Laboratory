@@ -17,7 +17,7 @@ for i = 1:length(folders)
         Label(i) = 1;
     end
     TrialType{i} = zeros(length(files),1);
-    TrialStatus{i} = zeros(length(files),1);
+    TrialStatus{i} = ones(length(files),1);
     ChannelID{i} = cell(64,1);
     Data{i} = zeros(64,256,length(files));
     
@@ -51,7 +51,7 @@ for i = 1:length(folders)
         C = textscan(tline{4},'%s');
         if sum(strncmpi('err',C{1},3)) > 0
             %fprintf('Error Found, This trial will be noticed.\n');
-            TrialStatus{i}(id) = 1;
+            TrialStatus{i}(id) = 0;
         end
         switch C{1}{2}
             case 'S1'
@@ -81,6 +81,39 @@ for i = 1:length(folders)
     end
 end
 save('Raw.mat','TrialType','TrialStatus','ChannelID','Data','Label');
+
+%% EEG Conditioning - Channel Identification
+EEG_Chan = ~strcmp(ChannelID{1},'X') & ~strcmp(ChannelID{1},'Y') & ~strcmp(ChannelID{1},'nd');
+EOG_Chan = strcmp(ChannelID{1},'X') | strcmp(ChannelID{1},'Y') | strcmp(ChannelID{1},'nd');
+EEG = cell(size(Data));
+EOG = cell(size(Data));
+StimType = cell(size(Data));
+SubType = cell(size(Data));
+for i = 1:length(Data)
+    EEG{i} = Data{i}(EEG_Chan,:,:);
+    EOG{i} = Data{i}(EOG_Chan,:,:);
+    StimType{i} = cell(size(TrialType{i}));
+    for j = 1:length(TrialType{i})
+        switch TrialType{i}(j)
+            case 1
+                StimType{i}{j} = 'S1';
+            case 2
+                StimType{i}{j} = 'S2 Match';
+            case 3
+                StimType{i}{j} = 'S2 NoMatch';
+        end
+    end
+    
+    TrialStatus{i} = TrialStatus{i} == 0;
+    
+    if Label(i) == 1
+        SubType{i} = 'Alcoholic';
+    else
+        SubType{i} = 'Control';
+    end
+end
+elocs = readlocs('Standard-1020-Cart.xyz');
+save('PreConditioned_Data.mat','EEG','EOG','SubType','StimType','TrialStatus');
 
 %% Store the Data to CSV for Easy Access from Python
 

@@ -1,4 +1,4 @@
-function [ S, F, T, P ] = MemSpect( Data, Window, Overlay, Frequency, Fs )
+function [ S, F, T, P ] = MemSpect( Data, Window, Overlay, Frequency, Fs, varargin )
 %Simplified Maximum Entropy Method Spectrogram
 %   [S,F,T,P] = MemSpect(Data,Window,Overlay,Frequency,Fs);
 %   
@@ -25,6 +25,16 @@ else
     moveBin = Window-Overlay;
 end
 
+Order = 12;
+if length(varargin) > 0
+    if rem(length(varargin),2) ~= 0
+        error('Incorrect number of input parameter pair');
+    end
+    if strcmpi(upper(varargin{1}),'Order')
+        Order = varargin{2};
+    end
+end
+
 numBin = floor((length(Data)-Window)/moveBin);
 
 S = [];
@@ -32,7 +42,7 @@ F = Frequency;
 T = zeros(1,numBin);
 P = zeros(length(Frequency),numBin);
 
-mem_params = configMem(12, Frequency, Fs);
+mem_params = configMem(Order, Frequency, Fs);
 
 for i = 1:numBin
     T(i) = ((i-1)*moveBin + i*moveBin+Window - 1) / 2 / Fs;
