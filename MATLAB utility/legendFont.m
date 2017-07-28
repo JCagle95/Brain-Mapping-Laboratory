@@ -8,7 +8,7 @@ hL = legend(Handler,Input);
 for n = 1:length(Config)/2
     set(hL,Config{(n-1)*2+1},Config{n*2});
 end
-legend boxoff;
+legend(gca,'boxoff');
 
 end
 

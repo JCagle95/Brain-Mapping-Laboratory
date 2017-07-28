@@ -19,34 +19,40 @@ else
     Overlay = round(Overlay);
 end
 
+if size(Data,1) == 1
+    Data = Data';
+end
+
 if Window <= Overlay
     error('The overlapping region is longer than each window.');
 else
     moveBin = Window-Overlay;
 end
 
-Order = 12;
+Order = 30;
 if length(varargin) > 0
     if rem(length(varargin),2) ~= 0
         error('Incorrect number of input parameter pair');
     end
-    if strcmpi(upper(varargin{1}),'Order')
+    if strcmpi(varargin{1},'Order')
         Order = varargin{2};
     end
 end
 
-numBin = floor((length(Data)-Window)/moveBin);
+%numBin = floor((length(Data)-Window)/moveBin);
+bins = getIndices(length(Data), Window, Overlay);
+numBin = length(bins);
 
 S = [];
 F = Frequency;
 T = zeros(1,numBin);
 P = zeros(length(Frequency),numBin);
 
-mem_params = configMem(Order, Frequency, Fs);
+mem_params = configMem(Order, Frequency, Fs, 'detrend', true, 'evalBin', 5);
 
 for i = 1:numBin
-    T(i) = ((i-1)*moveBin + i*moveBin+Window - 1) / 2 / Fs;
-    subData = Data((i-1)*moveBin+1 : i*moveBin+Window);
+    T(i) = (bins(i) + bins(i)+Window) / 2 / Fs;
+    subData = Data(bins(i) : bins(i)+Window);
     P(:,i) = mem(subData,mem_params);
 end
 
